@@ -1,0 +1,21 @@
+# Java build artifacts class files
+build
+classes
+*.class
+**/classes/*
+
+# other generated files
+bin/
+gen/
+build/
+
+# OSX files
+.DS_Store
+
+*.iml
+*.ipr
+*.iws
+.idea
+.gradle
+*.log
+.pid.lock
