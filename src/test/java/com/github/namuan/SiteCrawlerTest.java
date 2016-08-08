@@ -1,12 +1,12 @@
 package com.github.namuan;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 public class SiteCrawlerTest {
 
@@ -29,10 +29,10 @@ public class SiteCrawlerTest {
         siteCrawler.setHtmlPageReader(mockHtmlPageReader);
 
         // when
-        final Map<String, Set<String>> siteMap = siteCrawler.buildSiteMapFor(page);
+        final SiteMap siteMap = siteCrawler.buildSiteMapUsingTreeFor(page);
 
         // then
-        assertTrue("Should contain one child link from page", siteMap.get(page).size() == 1);
+        assertEquals("Should contain one child link from page", siteMap.getTopLevelSitePage().getPage(), "http://www.w3schools.com");
     }
 
     @Test
@@ -67,14 +67,22 @@ public class SiteCrawlerTest {
         mockHtmlPageReader.pageFragmentForChildPage = pageFragmentForChildPage;
 
         // when
-        final Map<String, Set<String>> siteMap = siteCrawler.buildSiteMapFor(page);
+        final SiteMap siteMap = siteCrawler.buildSiteMapUsingTreeFor(page);
 
         // then
+        assertTrue("Should contain child page", siteMap.getTopLevelSitePage().getChildPages().size() == 1);
+        Optional<SitePage> maybeFirstChildPage = siteMap.getTopLevelSitePage().getChildPages()
+                .stream()
+                .filter(sitePage -> sitePage.getPage().equals("http://www.w3schools.com/html/default.asp"))
+                .findFirst();
 
-        assertTrue("Should contain three entries in sitemap, found:" + siteMap.size(), siteMap.size() == 3);
-        assertTrue("Should contain child page", siteMap.get(page).contains("http://www.w3schools.com/html/default.asp"));
-        assertTrue("Should contain child page", siteMap.get("http://www.w3schools.com/html/default.asp").contains("http://www.w3schools.com/aboutus.asp"));
-        assertTrue("Leaf page shouldn't contain any child pages", siteMap.get("http://www.w3schools.com/aboutus.asp").size() == 0);
+        assertTrue("Should contain child page", maybeFirstChildPage.isPresent());
+        final Optional<SitePage> maybeChildNode = maybeFirstChildPage.get().getChildPages()
+                .stream()
+                .filter(sitePage -> sitePage.getPage().equals("http://www.w3schools.com/aboutus.asp"))
+                .findFirst();
+        assertTrue("Should contain child page", maybeChildNode.isPresent());
+        assertTrue("Leaf page shouldn't contain any child pages", maybeChildNode.get().getChildPages().size() == 0);
     }
 
     @Test
@@ -96,7 +104,7 @@ public class SiteCrawlerTest {
         siteCrawler.setHtmlPageReader(mockHtmlPageReader);
 
         // when
-        final Map<String, Set<String>> siteMap = siteCrawler.buildSiteMapFor(page);
+        siteCrawler.buildSiteMapUsingTreeFor(page);
 
         // then
         assertFalse(mockHtmlPageReader.visitedPages.contains("http://www.google.com/something.asp"));
@@ -121,10 +129,10 @@ public class SiteCrawlerTest {
         siteCrawler.setHtmlPageReader(mockHtmlPageReader);
 
         // when
-        final Map<String, Set<String>> siteMap = siteCrawler.buildSiteMapFor(page);
+        final SiteMap siteMap = siteCrawler.buildSiteMapUsingTreeFor(page);
 
         // then
-        assertTrue("Should contain external links from page", siteMap.get(page).size() == 1);
+        assertTrue("Should contain external links from page", siteMap.getTopLevelSitePage().getChildPages().size() == 1);
     }
 
 }

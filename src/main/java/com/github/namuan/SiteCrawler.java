@@ -2,8 +2,7 @@ package com.github.namuan;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -12,7 +11,6 @@ public class SiteCrawler {
     // Controls how deep that we would like the crawler to navigate the tree
     private int depthToCrawlPages = 1;
 
-    Map<String, Set<String>> siteMap = new HashMap<>();
     PageCrawler pageCrawler = new PageCrawler();
 
     public SiteCrawler() {
@@ -32,39 +30,6 @@ public class SiteCrawler {
         pageCrawler.setHtmlPageReader(htmlPageReader);
     }
 
-    /**
-     * Returns the sitemap
-     * @param siteToCrawl
-     * @return
-     */
-    public Map<String, Set<String>> buildSiteMapFor(String siteToCrawl) {
-        crawlPage(siteToCrawl, 1);
-        return siteMap;
-    }
-
-    /**
-     * Recursively crawls page and stops when it hits the depth set in this class
-     * @param pageUrl
-     * @param level
-     */
-    public void crawlPage(String pageUrl, int level) {
-        if (siteMap.get(pageUrl) != null) {
-            return;
-        }
-
-        System.out.println("<- " + pageUrl);
-
-        Set<String> pageChildrens = pageCrawler.buildLinkForPage(pageUrl);
-        siteMap.put(pageUrl, pageChildrens);
-
-        for (String childPageUrl : pageChildrens) {
-            System.out.println("==> Level: " + level + " -> " + childPageUrl);
-            if (level <= depthToCrawlPages && childPageBelongsToSameDomain(pageUrl, childPageUrl)) {
-                crawlPage(childPageUrl, level + 1);
-            }
-        }
-    }
-
     private boolean childPageBelongsToSameDomain(String pageUrl, String childPageUrl) {
         URL children = null;
         URL page = null;
@@ -77,5 +42,48 @@ public class SiteCrawler {
 
         return children != null && Objects.equals(page.getHost(), children.getHost());
 
+    }
+
+    Set<String> linksAlreadyTraversed = new HashSet<>();
+
+    /**
+     * Returns the sitemap
+     * @param siteToCrawl
+     * @return
+     */
+    public SiteMap buildSiteMapUsingTreeFor(String siteToCrawl) {
+        SitePage page = new SitePage(siteToCrawl);
+        findLinksForPage(page, 1);
+        return new SiteMap(siteToCrawl, page);
+    }
+
+    /**
+     * Recursively crawls page and stops when it hits the depth set in this class
+     * @param page
+     * @param level
+     */
+    public void findLinksForPage(SitePage page, int level) {
+        if (level > depthToCrawlPages) {
+            System.out.println("Hit crawl limit:" + level);
+            return;
+        }
+
+        if (linksAlreadyTraversed.contains(page.getPage())) {
+            System.out.println("Page already traversed:" + page.getPage());
+            return;
+        }
+
+        System.out.println("Finding links for " + page);
+        final Set<String> linksForChildPage = pageCrawler.buildLinkForPage(page.getPage());
+        linksAlreadyTraversed.add(page.getPage());
+
+        linksForChildPage.stream()
+                .map(childPageLink -> {
+                    SitePage childSitePage = new SitePage(childPageLink);
+                    page.add(childSitePage);
+                    return childSitePage;
+                })
+                .filter(childSitePage -> childPageBelongsToSameDomain(page.getPage(), childSitePage.getPage()))
+                .forEach(childSitePage -> findLinksForPage(childSitePage, level + 1));
     }
 }
